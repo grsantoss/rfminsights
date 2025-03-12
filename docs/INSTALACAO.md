@@ -1,0 +1,701 @@
+# Guia de Instalação do RFM Insights
+
+Este guia fornece instruções detalhadas para instalar e configurar o RFM Insights utilizando Docker, Portainer para gerenciamento de contêineres e Nginx para roteamento de URLs.
+
+## Pré-requisitos
+
+- Servidor Linux (Ubuntu 20.04 LTS ou superior recomendado)
+- Docker e Docker Compose instalados
+- Domínios configurados (ap.rfminsights.com.br e api.rfminsights.com.br)
+- Acesso root ou sudo ao servidor
+
+## 1. Preparação do Ambiente
+
+### 1.1 Atualizar o Sistema
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+### 1.2 Instalar Docker e Docker Compose
+
+```bash
+# Instalar dependências
+sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+
+# Adicionar chave GPG do Docker
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# Adicionar repositório do Docker
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+# Atualizar lista de pacotes
+sudo apt update
+
+# Instalar Docker
+sudo apt install -y docker-ce docker-ce-cli containerd.io
+
+# Instalar Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Adicionar usuário ao grupo docker (opcional, para executar docker sem sudo)
+sudo usermod -aG docker $USER
+```
+
+### 1.3 Verificar Instalação
+
+```bash
+# Verificar versão do Docker
+docker --version
+
+# Verificar versão do Docker Compose
+docker-compose --version
+
+# Testar Docker
+docker run hello-world
+```
+
+## 2. Configuração do Portainer
+
+### 2.1 Criar Volume para Persistência de Dados
+
+```bash
+sudo docker volume create portainer_data
+```
+
+### 2.2 Instalar e Iniciar Portainer
+
+```bash
+sudo docker run -d -p 8000:8000 -p 9443:9443 --name portainer \
+    --restart=always \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v portainer_data:/data \
+    portainer/portainer-ce:latest
+```
+
+### 2.3 Acessar Portainer
+
+Acesse `https://seu-servidor:9443` e crie uma senha de administrador.
+
+## 3. Configuração do Projeto RFM Insights
+
+### 3.1 Criar Estrutura de Diretórios
+
+```bash
+mkdir -p ~/rfminsights/{app,nginx,postgres,portainer}
+cd ~/rfminsights
+```
+
+### 3.2 Criar Arquivo Docker Compose
+
+Crie o arquivo `docker-compose.yml` na pasta raiz:
+
+```bash
+cat > docker-compose.yml << 'EOL'
+version: '3.8'
+
+services:
+  # Serviço da API
+  api:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: rfminsights-api
+    restart: always
+    volumes:
+      - ./app:/app
+      - ./app/data:/app/data
+    env_file:
+      - ./app/.env
+    depends_on:
+      - postgres
+    networks:
+      - rfminsights-network
+
+  # Serviço do Frontend (Nginx para servir arquivos estáticos)
+  frontend:
+    image: nginx:alpine
+    container_name: rfminsights-frontend
+    restart: always
+    volumes:
+      - ./app/frontend:/usr/share/nginx/html
+      - ./nginx/frontend.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api
+    networks:
+      - rfminsights-network
+
+  # Serviço do Banco de Dados PostgreSQL
+  postgres:
+    image: postgres:14-alpine
+    container_name: rfminsights-postgres
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=rfminsights
+      - POSTGRES_PASSWORD=rfminsights_password
+      - POSTGRES_DB=rfminsights
+    networks:
+      - rfminsights-network
+
+  # Serviço do Nginx para Proxy Reverso
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: rfminsights-nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - rfminsights-network
+
+networks:
+  rfminsights-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+EOL
+```
+
+### 3.3 Configurar Nginx para Proxy Reverso
+
+Crie a pasta de configuração do Nginx:
+
+```bash
+mkdir -p ~/rfminsights/nginx/conf.d
+mkdir -p ~/rfminsights/nginx/ssl
+mkdir -p ~/rfminsights/nginx/logs
+```
+
+Crie o arquivo de configuração principal do Nginx:
+
+```bash
+cat > ~/rfminsights/nginx/nginx.conf << 'EOL'
+user  nginx;
+worker_processes  auto;
+
+error_log  /var/log/nginx/error.log notice;
+pid        /var/run/nginx.pid;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+    tcp_nopush      on;
+    tcp_nodelay     on;
+    keepalive_timeout  65;
+    types_hash_max_size 2048;
+    server_tokens off;
+
+    # SSL settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384';
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Gzip settings
+    gzip on;
+    gzip_disable "msie6";
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_buffers 16 8k;
+    gzip_http_version 1.1;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Include virtual host configs
+    include /etc/nginx/conf.d/*.conf;
+}
+EOL
+```
+
+Crie a configuração para o frontend (ap.rfminsights.com.br):
+
+```bash
+cat > ~/rfminsights/nginx/conf.d/frontend.conf << 'EOL'
+server {
+    listen 80;
+    server_name ap.rfminsights.com.br;
+
+    # Redirecionar HTTP para HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name ap.rfminsights.com.br;
+
+    # Certificados SSL
+    ssl_certificate /etc/nginx/ssl/frontend.crt;
+    ssl_certificate_key /etc/nginx/ssl/frontend.key;
+
+    # Logs
+    access_log /var/log/nginx/frontend_access.log;
+    error_log /var/log/nginx/frontend_error.log;
+
+    # Configurações de segurança
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options "nosniff";
+
+    # Configuração do proxy para o serviço frontend
+    location / {
+        proxy_pass http://frontend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOL
+```
+
+Crie a configuração para a API (api.rfminsights.com.br):
+
+```bash
+cat > ~/rfminsights/nginx/conf.d/api.conf << 'EOL'
+server {
+    listen 80;
+    server_name api.rfminsights.com.br;
+
+    # Redirecionar HTTP para HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name api.rfminsights.com.br;
+
+    # Certificados SSL
+    ssl_certificate /etc/nginx/ssl/api.crt;
+    ssl_certificate_key /etc/nginx/ssl/api.key;
+
+    # Logs
+    access_log /var/log/nginx/api_access.log;
+    error_log /var/log/nginx/api_error.log;
+
+    # Configurações de segurança
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options "nosniff";
+
+    # Configuração do proxy para o serviço API
+    location / {
+        proxy_pass http://api:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOL
+```
+
+Crie a configuração para o frontend Nginx interno:
+
+```bash
+cat > ~/rfminsights/nginx/frontend.conf << 'EOL'
+server {
+    listen 80;
+    server_name localhost;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache de arquivos estáticos
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+}
+EOL
+```
+
+### 3.4 Configurar Arquivo .env
+
+Copie o arquivo .env.example para a pasta do aplicativo e configure-o:
+
+```bash
+mkdir -p ~/rfminsights/app
+cp .env.example ~/rfminsights/app/.env
+```
+
+Edite o arquivo .env com as configurações corretas:
+
+```bash
+cat > ~/rfminsights/app/.env << 'EOL'
+# RFM Insights - Environment Variables
+
+# Database Configuration
+DATABASE_URL=postgresql://rfminsights:rfminsights_password@postgres/rfminsights
+
+# JWT Configuration
+JWT_SECRET_KEY=sua-chave-secreta-muito-longa-e-segura
+JWT_EXPIRATION_MINUTES=60
+
+# Amazon SES Configuration for Email
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=sua-aws-access-key
+AWS_SECRET_ACCESS_KEY=sua-aws-secret-key
+EMAIL_SENDER=noreply@rfminsights.com.br
+
+# OpenAI Configuration
+OPENAI_API_KEY=sua-openai-api-key
+OPENAI_MODEL=gpt-4o-mini
+
+# Frontend URL
+FRONTEND_URL=https://ap.rfminsights.com.br
+
+# Server Configuration
+PORT=8000
+ENVIRONMENT=production
+
+# Logging Configuration
+LOG_LEVEL=info
+EOL
+```
+
+### 3.5 Copiar Arquivos do Projeto
+
+Copie os arquivos do projeto para a pasta do aplicativo:
+
+```bash
+# Copiar todos os arquivos do projeto para a pasta do aplicativo
+cp -r * ~/rfminsights/app/
+```
+
+## 4. Configuração de SSL
+
+### 4.1 Gerar Certificados SSL Autoassinados (para desenvolvimento)
+
+```bash
+# Gerar certificado para o frontend
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout ~/rfminsights/nginx/ssl/frontend.key \
+    -out ~/rfminsights/nginx/ssl/frontend.crt \
+    -subj "/C=BR/ST=Estado/L=Cidade/O=RFMInsights/CN=ap.rfminsights.com.br"
+
+# Gerar certificado para a API
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout ~/rfminsights/nginx/ssl/api.key \
+    -out ~/rfminsights/nginx/ssl/api.crt \
+    -subj "/C=BR/ST=Estado/L=Cidade/O=RFMInsights/CN=api.rfminsights.com.br"
+```
+
+### 4.2 Configurar Certificados Let's Encrypt (para produção)
+
+Para ambiente de produção, é recomendado usar certificados válidos do Let's Encrypt:
+
+```bash
+# Instalar Certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# Obter certificados para os domínios
+sudo certbot --nginx -d ap.rfminsights.com.br -d api.rfminsights.com.br
+
+# Copiar certificados para a pasta do Nginx
+sudo cp /etc/letsencrypt/live/ap.rfminsights.com.br/fullchain.pem ~/rfminsights/nginx/ssl/frontend.crt
+sudo cp /etc/letsencrypt/live/ap.rfminsights.com.br/privkey.pem ~/rfminsights/nginx/ssl/frontend.key
+sudo cp /etc/letsencrypt/live/api.rfminsights.com.br/fullchain.pem ~/rfminsights/nginx/ssl/api.crt
+sudo cp /etc/letsencrypt/live/api.rfminsights.com.br/privkey.pem ~/rfminsights/nginx/ssl/api.key
+
+# Ajustar permissões
+sudo chmod 644 ~/rfminsights/nginx/ssl/*.crt
+sudo chmod 600 ~/rfminsights/nginx/ssl/*.key
+```
+
+## 5. Implantação com Docker Compose
+
+### 5.1 Iniciar os Serviços
+
+```bash
+cd ~/rfminsights
+docker-compose up -d
+```
+
+### 5.2 Verificar Status dos Contêineres
+
+```bash
+docker-compose ps
+```
+
+### 5.3 Inicializar o Banco de Dados
+
+```bash
+# Executar migrações do banco de dados
+docker-compose exec api python -m backend.migrations --init
+
+# Criar usuário administrador inicial
+docker-compose exec api python -m backend.migrations --seed
+```
+
+## 6. Verificação e Monitoramento
+
+### 6.1 Verificar Logs dos Serviços
+
+```bash
+# Verificar logs da API
+docker-compose logs api
+
+# Verificar logs do frontend
+docker-compose logs frontend
+
+# Verificar logs do Nginx
+docker-compose logs nginx-proxy
+```
+
+### 6.2 Verificar Conectividade
+
+```bash
+# Testar conectividade com a API
+curl -k https://api.rfminsights.com.br/
+
+# Testar conectividade com o frontend
+curl -k https://ap.rfminsights.com.br/
+```
+
+### 6.3 Configurar Verificações de Saúde Automáticas
+
+Crie um script para verificação automática de saúde dos serviços:
+
+```bash
+cat > ~/rfminsights/health_check.sh << 'EOL'
+#!/bin/bash
+
+# Verificar status dos contêineres
+echo "Verificando status dos contêineres..."
+docker ps | grep rfminsights
+
+# Verificar API
+echo "\nVerificando API..."
+API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -k https://api.rfminsights.com.br/)
+if [ "$API_STATUS" == "200" ] || [ "$API_STATUS" == "401" ]; then
+    echo "API está funcionando (status: $API_STATUS)"
+else
+    echo "ERRO: API não está respondendo corretamente (status: $API_STATUS)"
+fi
+
+# Verificar Frontend
+echo "\nVerificando Frontend..."
+FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -k https://ap.rfminsights.com.br/)
+if [ "$FRONTEND_STATUS" == "200" ]; then
+    echo "Frontend está funcionando (status: $FRONTEND_STATUS)"
+else
+    echo "ERRO: Frontend não está respondendo corretamente (status: $FRONTEND_STATUS)"
+fi
+
+# Verificar Banco de Dados
+echo "\nVerificando Banco de Dados..."
+DB_STATUS=$(docker-compose exec -T postgres pg_isready -U rfminsights)
+echo "Status do banco de dados: $DB_STATUS"
+EOL
+
+chmod +x ~/rfminsights/health_check.sh
+```
+
+Adicione o script ao crontab para execução periódica:
+
+```bash
+(crontab -l 2>/dev/null; echo "0 * * * * ~/rfminsights/health_check.sh >> ~/rfminsights/health_check.log 2>&1") | crontab -
+```
+
+## 7. Backup e Restauração
+
+### 7.1 Configurar Backup Automático
+
+Crie um script para backup automático do banco de dados:
+
+```bash
+cat > ~/rfminsights/backup.sh << 'EOL'
+#!/bin/bash
+
+# Configurações
+BACKUP_DIR=~/rfminsights/backups
+DATETIME=$(date +"%Y%m%d_%H%M%S")
+BACKUP_FILE="$BACKUP_DIR/rfminsights_$DATETIME.sql"
+
+# Criar diretório de backup se não existir
+mkdir -p $BACKUP_DIR
+
+# Realizar backup do banco de dados
+echo "Realizando backup do banco de dados..."
+docker-compose exec -T postgres pg_dump -U rfminsights rfminsights > $BACKUP_FILE
+
+# Comprimir arquivo de backup
+gzip $BACKUP_FILE
+
+# Manter apenas os últimos 7 backups
+echo "Removendo backups antigos..."
+ls -t $BACKUP_DIR/rfminsights_*.sql.gz | tail -n +8 | xargs -r rm
+
+echo "Backup concluído: ${BACKUP_FILE}.gz"
+EOL
+
+chmod +x ~/rfminsights/backup.sh
+```
+
+Adicione o script ao crontab para execução diária:
+
+```bash
+(crontab -l 2>/dev/null; echo "0 2 * * * ~/rfminsights/backup.sh >> ~/rfminsights/backup.log 2>&1") | crontab -
+```
+
+### 7.2 Restaurar Backup
+
+```bash
+# Restaurar backup (substitua ARQUIVO_BACKUP pelo nome do arquivo de backup)
+gunzip -c ~/rfminsights/backups/ARQUIVO_BACKUP.sql.gz | docker-compose exec -T postgres psql -U rfminsights rfminsights
+```
+
+## 8. Atualização da Aplicação
+
+### 8.1 Atualizar Código
+
+```bash
+cd ~/rfminsights/app
+git pull origin main  # ou o branch que você está usando
+```
+
+### 8.2 Reconstruir e Reiniciar Contêineres
+
+```bash
+cd ~/rfminsights
+docker-compose down
+docker-compose build
+docker-compose up -d
+```
+
+### 8.3 Verificar Atualização
+
+```bash
+# Verificar logs após atualização
+docker-compose logs --tail=100 api
+
+# Executar verificação de saúde
+./health_check.sh
+```
+
+## 9. Solução de Problemas
+
+### 9.1 Problemas Comuns e Soluções
+
+#### Erro de Conexão com o Banco de Dados
+
+```bash
+# Verificar se o contêiner do PostgreSQL está em execução
+docker-compose ps postgres
+
+# Verificar logs do PostgreSQL
+docker-compose logs postgres
+
+# Reiniciar o PostgreSQL
+docker-compose restart postgres
+```
+
+#### Erro de Permissão nos Certificados SSL
+
+```bash
+# Corrigir permissões dos certificados
+sudo chmod 644 ~/rfminsights/nginx/ssl/*.crt
+sudo chmod 600 ~/rfminsights/nginx/ssl/*.key
+
+# Reiniciar o Nginx
+docker-compose restart nginx-proxy
+```
+
+#### Erro 502 Bad Gateway
+
+```bash
+# Verificar se a API está em execução
+docker-compose ps api
+
+# Verificar logs da API
+docker-compose logs api
+
+# Reiniciar a API
+docker-compose restart api
+```
+
+### 9.2 Comandos Úteis para Diagnóstico
+
+```bash
+# Verificar uso de recursos
+docker stats
+
+# Verificar configuração do Nginx
+docker-compose exec nginx-proxy nginx -t
+
+# Verificar conectividade entre contêineres
+docker-compose exec api ping -c 3 postgres
+```
+
+## 10. Gerenciamento via Portainer
+
+### 10.1 Acessar Portainer
+
+Acesse o Portainer em `https://seu-servidor:9443` e faça login com as credenciais criadas anteriormente.
+
+### 10.2 Adicionar Stack do RFM Insights
+
+1. No menu lateral, clique em "Stacks"
+2. Clique em "Add stack"
+3. Dê um nome à stack (ex: "rfminsights")
+4. Na seção "Build method", selecione "Upload"
+5. Faça upload do arquivo docker-compose.yml
+6. Clique em "Deploy the stack"
+
+### 10.3 Gerenciar Contêineres
+
+No Portainer, você pode:
+
+- Visualizar logs dos contêineres
+- Reiniciar, parar ou iniciar contêineres
+- Acessar o terminal dos contêineres
+- Monitorar o uso de recursos
+
+## 11. Conclusão
+
+Parabéns! Você concluiu a instalação e configuração do RFM Insights utilizando Docker, Portainer e Nginx. A aplicação agora está disponível nos seguintes endereços:
+
+- Frontend: https://ap.rfminsights.com.br
+- API: https://api.rfminsights.com.br
+- Documentação da API: https://api.rfminsights.com.br/docs
+
+Para acessar o sistema, utilize as credenciais de administrador criadas durante a inicialização do banco de dados:
+
+- Email: admin@rfminsights.com
+- Senha: admin123 (recomendamos alterar esta senha após o primeiro acesso)
+
+Em caso de dúvidas ou problemas, consulte a documentação ou entre em contato com o suporte técnico.
