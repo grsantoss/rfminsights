@@ -1,6 +1,6 @@
 # RFM Insights - API Module
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
 from fastapi.responses import JSONResponse
 import pandas as pd
 import io
@@ -8,6 +8,10 @@ import json
 import datetime
 import os
 from typing import Optional, List, Dict, Any
+
+# Import response utilities
+from .api_utils import success_response, error_response, paginated_response
+from .schemas import ResponseSuccess, ResponseError, PaginatedResponseSuccess
 
 # Import RFM Analysis module
 from .rfm_analysis import analyze_rfm_data
@@ -19,7 +23,7 @@ router = APIRouter()
 HISTORY_DIR = "analysis_history"
 os.makedirs(HISTORY_DIR, exist_ok=True)
 
-@router.post("/analyze-rfm")
+@router.post("/analyze-rfm", response_model=ResponseSuccess[Dict[str, Any]], description="Analyze RFM data from uploaded CSV file and generate customer segments")
 async def analyze_rfm(
     file: UploadFile = File(...),
     segment_type: str = Form(...),
@@ -41,9 +45,9 @@ async def analyze_rfm(
         missing_cols = [col for col in required_cols if col not in data.columns]
         
         if missing_cols:
-            return JSONResponse(
-                status_code=400,
-                content={"error": f"Missing required columns: {', '.join(missing_cols)}"}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Missing required columns: {', '.join(missing_cols)}"
             )
         
         # Perform RFM analysis
@@ -84,15 +88,18 @@ async def analyze_rfm(
         # Add history entry to results
         results["history_entry"] = history_entry
         
-        return results
+        return success_response(
+            data=results,
+            message="RFM analysis completed successfully"
+        )
     
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Error processing file: {str(e)}"}
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing file: {str(e)}"
         )
 
-@router.get("/analysis-history")
+@router.get("/analysis-history", response_model=ResponseSuccess[Dict[str, List[Dict[str, Any]]]], description="Get analysis history with optional limit parameter")
 async def get_analysis_history(limit: int = 5):
     """
     Get analysis history (limited to the most recent entries)
@@ -110,15 +117,18 @@ async def get_analysis_history(limit: int = 5):
                 history_entry = json.load(f)
                 history.append(history_entry)
         
-        return {"history": history}
+        return success_response(
+            data={"history": history},
+            message=f"Retrieved {len(history)} analysis history records"
+        )
     
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Error retrieving analysis history: {str(e)}"}
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving analysis history: {str(e)}"
         )
 
-@router.get("/segment-descriptions")
+@router.get("/segment-descriptions", response_model=ResponseSuccess[Dict[str, Dict[str, str]]], description="Get descriptions for RFM segments")
 async def get_segment_descriptions():
     """
     Get descriptions for RFM segments
@@ -137,9 +147,12 @@ async def get_segment_descriptions():
         "Clientes Perdidos": "Clientes que não compram há muito tempo e têm baixa frequência."
     }
     
-    return {"segment_descriptions": segment_descriptions}
+    return success_response(
+        data={"segment_descriptions": segment_descriptions},
+        message="Segment descriptions retrieved successfully"
+    )
 
-@router.get("/segment-recommendations")
+@router.get("/segment-recommendations", response_model=ResponseSuccess[Dict[str, Dict[str, List[str]]]], description="Get marketing recommendations for each RFM segment")
 async def get_segment_recommendations():
     """
     Get marketing recommendations for each RFM segment
@@ -213,4 +226,7 @@ async def get_segment_recommendations():
         ]
     }
     
-    return {"segment_recommendations": segment_recommendations}
+    return success_response(
+        data={"segment_recommendations": segment_recommendations},
+        message="Segment recommendations retrieved successfully"
+    )

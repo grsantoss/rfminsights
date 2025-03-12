@@ -1,0 +1,158 @@
+version: '3.8'
+
+services:
+  # Serviço da API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.optimized
+    container_name: rfminsights-api
+    restart: always
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rfminsights-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  # Serviço do Frontend (Nginx para servir arquivos estáticos)
+  frontend:
+    image: nginx:alpine
+    container_name: rfminsights-frontend
+    restart: always
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+      - ./nginx/frontend.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api
+    networks:
+      - rfminsights-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/health.html"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  # Serviço do Banco de Dados PostgreSQL
+  postgres:
+    image: postgres:14-alpine
+    container_name: rfminsights-postgres
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    environment:
+      - POSTGRES_USER=rfminsights
+      - POSTGRES_PASSWORD=rfminsights_password
+      - POSTGRES_DB=rfminsights
+    networks:
+      - rfminsights-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rfminsights"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  # Serviço de Backup do Banco de Dados
+  db-backup:
+    image: postgres:14-alpine
+    container_name: rfminsights-db-backup
+    restart: always
+    volumes:
+      - ./backups:/backups
+      - ./scripts:/scripts
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=rfminsights
+      - POSTGRES_PASSWORD=rfminsights_password
+      - POSTGRES_DB=rfminsights
+      - BACKUP_RETENTION_DAYS=7
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rfminsights-network
+    entrypoint: ["/bin/sh", "-c", "chmod +x /scripts/backup.sh && /scripts/backup.sh"]
+
+  # Serviço do Nginx para Proxy Reverso
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: rfminsights-nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - rfminsights-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+networks:
+  rfminsights-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+
+# Docker Swarm deployment configuration
+# Uncomment and adjust the following section when deploying with Docker Swarm
+#
+# deploy:
+#   mode: replicated
+#   replicas: 1
+#   update_config:
+#     parallelism: 1
+#     delay: 10s
+#     order: start-first
+#   restart_policy:
+#     condition: on-failure
+#     max_attempts: 3
+#     window: 120s
+#   placement:
+#     constraints:
+#       - node.role == worker

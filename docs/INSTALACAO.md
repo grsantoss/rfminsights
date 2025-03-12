@@ -260,9 +260,16 @@ server {
     error_log /var/log/nginx/frontend_error.log;
 
     # Configurações de segurança
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-XSS-Protection "1; mode=block";
-    add_header X-Content-Type-Options "nosniff";
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    
+    # Strict Transport Security (HSTS)
+    add_header Strict-Transport-Security "max-age=15768000; includeSubDomains" always;
+    
+    # Content Security Policy (CSP)
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.rfminsights.com.br; frame-ancestors 'none';" always;
 
     # Configuração do proxy para o serviço frontend
     location / {
@@ -303,9 +310,16 @@ server {
     error_log /var/log/nginx/api_error.log;
 
     # Configurações de segurança
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-XSS-Protection "1; mode=block";
-    add_header X-Content-Type-Options "nosniff";
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    
+    # Strict Transport Security (HSTS)
+    add_header Strict-Transport-Security "max-age=15768000; includeSubDomains" always;
+    
+    # Content Security Policy (CSP)
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.rfminsights.com.br; frame-ancestors 'none';" always;
 
     # Configuração do proxy para o serviço API
     location / {
@@ -387,7 +401,74 @@ LOG_LEVEL=info
 EOL
 ```
 
-### 3.5 Copiar Arquivos do Projeto
+### 3.5 Estrutura de Arquivos do Projeto
+
+O RFM Insights possui a seguinte estrutura de arquivos e diretórios:
+
+```
+RFMInsights/
+├── backend/                # Código backend da aplicação
+│   ├── __init__.py
+│   ├── api_utils.py        # Utilitários para API
+│   ├── auth.py             # Lógica de autenticação
+│   ├── auth_routes.py      # Rotas de autenticação
+│   ├── database.py         # Configuração do banco de dados
+│   ├── marketplace.py      # Funcionalidades do marketplace
+│   ├── middleware.py       # Middlewares da aplicação
+│   ├── migrations.py       # Migrações do banco de dados
+│   ├── models.py           # Modelos de dados
+│   ├── monitoring.py       # Sistema de monitoramento
+│   ├── rfm_analysis.py     # Lógica de análise RFM
+│   ├── rfm_api.py          # Rotas da API RFM
+│   └── schemas.py          # Esquemas de dados
+├── config/                 # Configurações da aplicação
+│   ├── __init__.py
+│   ├── config.py           # Configurações gerais
+│   ├── env_validator.py    # Validação de variáveis de ambiente
+│   ├── logging_config.py   # Configuração de logs
+│   └── monitoring_config.py # Configuração de monitoramento
+├── docs/                   # Documentação
+│   ├── INSTALACAO.md       # Guia de instalação
+│   ├── README.md           # Documentação geral
+│   └── nginx_security.md   # Configurações de segurança do Nginx
+├── frontend/               # Interface de usuário
+│   ├── ai_insights.js      # Funcionalidades de insights com IA
+│   ├── analise.html        # Página de análise RFM
+│   ├── analise.js          # Lógica da página de análise
+│   ├── api-client.js       # Cliente para comunicação com a API
+│   ├── app.js              # Aplicação principal
+│   ├── cadastro.html       # Página de cadastro
+│   ├── configuracoes.html  # Página de configurações
+│   ├── dashboard.js        # Lógica do dashboard
+│   ├── index.html          # Página inicial
+│   ├── login.html          # Página de login
+│   ├── marketplace.html    # Página do marketplace
+│   └── styles.css          # Estilos da aplicação
+├── migrations/             # Migrações do Alembic
+│   ├── versions/           # Versões das migrações
+│   └── env.py              # Ambiente de migrações
+├── monitoring/             # Configurações de monitoramento
+│   ├── grafana/            # Configurações do Grafana
+│   │   ├── dashboards/     # Dashboards pré-configurados
+│   │   └── provisioning/   # Configuração automática
+│   └── prometheus/         # Configurações do Prometheus
+├── scripts/                # Scripts utilitários
+│   └── backup.sh           # Script de backup
+├── tests/                  # Testes automatizados
+│   ├── integration/        # Testes de integração
+│   └── unit/               # Testes unitários
+├── .env.example            # Exemplo de variáveis de ambiente
+├── .env.monitoring         # Variáveis para monitoramento
+├── Dockerfile              # Configuração do Docker
+├── Dockerfile.optimized    # Dockerfile otimizado para produção
+├── docker-compose.yml      # Configuração dos serviços
+├── docker-compose.monitoring.yml # Configuração de monitoramento
+├── main.py                 # Ponto de entrada da aplicação
+├── alembic.ini             # Configuração do Alembic
+└── requirements.txt        # Dependências Python
+```
+
+### 3.6 Copiar Arquivos do Projeto
 
 Copie os arquivos do projeto para a pasta do aplicativo:
 
@@ -685,13 +766,259 @@ No Portainer, você pode:
 - Acessar o terminal dos contêineres
 - Monitorar o uso de recursos
 
-## 11. Conclusão
+## 11. Configuração do Sistema de Monitoramento
+
+O RFM Insights inclui um sistema completo de monitoramento baseado em Prometheus e Grafana para acompanhar o desempenho e a saúde da aplicação em ambiente de produção.
+
+### 11.1 Configurar Variáveis de Ambiente para Monitoramento
+
+Crie o arquivo `.env.monitoring` na pasta raiz do projeto:
+
+```bash
+cat > ~/rfminsights/.env.monitoring << 'EOL'
+# RFM Insights - Monitoring Environment Variables
+
+# Sentry Configuration
+SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
+SENTRY_TRACES_SAMPLE_RATE=0.2
+SENTRY_PROFILES_SAMPLE_RATE=0.1
+SENTRY_ENABLE_TRACING=True
+
+# Prometheus Configuration
+PROMETHEUS_ENABLE=True
+PROMETHEUS_METRICS_PORT=9090
+
+# Grafana Configuration
+GRAFANA_URL=http://grafana:3000
+
+# Alert Configuration
+ALERT_EMAIL_RECIPIENTS=admin@example.com,alerts@example.com
+ALERT_SLACK_WEBHOOK=https://hooks.slack.com/services/your-slack-webhook-url
+ALERT_CRITICAL_THRESHOLD=3
+
+# Performance Thresholds
+THRESHOLD_API_RESPONSE_TIME=1.0
+THRESHOLD_DATABASE_QUERY_TIME=0.5
+THRESHOLD_MEMORY_USAGE=85.0
+THRESHOLD_CPU_USAGE=80.0
+EOL
+```
+
+### 11.2 Criar Estrutura de Diretórios para Monitoramento
+
+```bash
+mkdir -p ~/rfminsights/monitoring/prometheus
+mkdir -p ~/rfminsights/monitoring/grafana/provisioning/{datasources,dashboards}
+mkdir -p ~/rfminsights/monitoring/grafana/dashboards
+```
+
+### 11.3 Configurar Prometheus
+
+Crie o arquivo de configuração do Prometheus:
+
+```bash
+cat > ~/rfminsights/monitoring/prometheus/prometheus.yml << 'EOL'
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+rule_files:
+  # - "first_rules.yml"
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "rfminsights-api"
+    static_configs:
+      - targets: ["api:8000"]
+
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+EOL
+```
+
+### 11.4 Configurar Grafana
+
+Crie a configuração de fonte de dados para o Grafana:
+
+```bash
+cat > ~/rfminsights/monitoring/grafana/provisioning/datasources/datasource.yml << 'EOL'
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+EOL
+```
+
+### 11.5 Iniciar Serviços de Monitoramento
+
+```bash
+cd ~/rfminsights
+docker-compose -f docker-compose.monitoring.yml up -d
+```
+
+### 11.6 Verificar Status dos Serviços de Monitoramento
+
+```bash
+docker-compose -f docker-compose.monitoring.yml ps
+```
+
+### 11.7 Configurar Nginx para Monitoramento
+
+Para acessar os serviços de monitoramento de forma segura, configure o Nginx para atuar como proxy reverso:
+
+```bash
+cat > ~/rfminsights/nginx/conf.d/monitoring.conf << 'EOL'
+server {
+    listen 80;
+    server_name monitoring.rfminsights.com.br;
+
+    # Redirecionar HTTP para HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name monitoring.rfminsights.com.br;
+
+    # Certificados SSL
+    ssl_certificate /etc/nginx/ssl/monitoring.crt;
+    ssl_certificate_key /etc/nginx/ssl/monitoring.key;
+
+    # Logs
+    access_log /var/log/nginx/monitoring_access.log;
+    error_log /var/log/nginx/monitoring_error.log;
+
+    # Configurações de segurança
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    
+    # Strict Transport Security (HSTS)
+    add_header Strict-Transport-Security "max-age=15768000; includeSubDomains" always;
+    
+    # Autenticação básica para proteção adicional
+    auth_basic "Área Restrita de Monitoramento";
+    auth_basic_user_file /etc/nginx/monitoring_users;
+
+    # Proxy para Grafana
+    location / {
+        proxy_pass http://grafana:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Proxy para Prometheus (subpath /prometheus/)
+    location /prometheus/ {
+        proxy_pass http://prometheus:9090/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOL
+```
+
+Crie o arquivo de autenticação para o acesso ao monitoramento:
+
+```bash
+# Instalar apache2-utils para usar o comando htpasswd
+sudo apt install -y apache2-utils
+
+# Criar arquivo de usuários (substitua 'admin_monitoring' pela senha desejada)
+sudo htpasswd -c ~/rfminsights/nginx/monitoring_users admin admin_monitoring
+
+# Copiar para o volume do Nginx
+docker cp ~/rfminsights/nginx/monitoring_users rfminsights-nginx-proxy:/etc/nginx/
+
+# Reiniciar o Nginx para aplicar as alterações
+docker-compose restart nginx-proxy
+```
+
+### 11.8 Acessar Interfaces de Monitoramento
+
+- Monitoramento (Grafana): https://monitoring.rfminsights.com.br
+- Prometheus: https://monitoring.rfminsights.com.br/prometheus/
+
+Credenciais de acesso:
+- Autenticação HTTP: usuário: admin, senha: admin_monitoring
+- Grafana: usuário: admin, senha: rfminsights_grafana
+
+## 12. Estrutura de Rotas e Endpoints da API
+
+O RFM Insights possui uma estrutura de API organizada com endpoints versionados para garantir compatibilidade e facilitar a manutenção.
+
+### 12.1 Rotas Principais da API
+
+A API do RFM Insights está organizada nos seguintes grupos de endpoints:
+
+#### Endpoints Versionados (Recomendados)
+
+- **Análise RFM**: `/api/v1/rfm/`
+  - `/api/v1/rfm/analyze` - Realizar análise RFM
+  - `/api/v1/rfm/segments` - Listar segmentos RFM
+  - `/api/v1/rfm/insights` - Gerar insights baseados em análise RFM
+  - `/api/v1/rfm/export` - Exportar resultados da análise
+
+- **Marketplace**: `/api/v1/marketplace/`
+  - `/api/v1/marketplace/integrations` - Listar integrações disponíveis
+  - `/api/v1/marketplace/plugins` - Gerenciar plugins
+
+- **Autenticação**: `/api/v1/auth/`
+  - `/api/v1/auth/login` - Autenticar usuário
+  - `/api/v1/auth/register` - Registrar novo usuário
+  - `/api/v1/auth/refresh` - Renovar token de acesso
+  - `/api/v1/auth/password-reset` - Solicitar redefinição de senha
+
+#### Endpoints Legados (Compatibilidade)
+
+Para compatibilidade com versões anteriores, os seguintes endpoints também estão disponíveis:
+
+- `/api/rfm/*` - Endpoints de análise RFM
+- `/api/marketplace/*` - Endpoints do marketplace
+- `/api/auth/*` - Endpoints de autenticação
+
+### 12.2 Documentação da API
+
+A documentação completa da API está disponível em:
+
+- Swagger UI: `https://api.rfminsights.com.br/docs`
+- ReDoc: `https://api.rfminsights.com.br/redoc`
+
+A documentação inclui todos os endpoints, parâmetros, exemplos de requisições e respostas.
+
+## 13. Conclusão
 
 Parabéns! Você concluiu a instalação e configuração do RFM Insights utilizando Docker, Portainer e Nginx. A aplicação agora está disponível nos seguintes endereços:
 
 - Frontend: https://ap.rfminsights.com.br
 - API: https://api.rfminsights.com.br
 - Documentação da API: https://api.rfminsights.com.br/docs
+- Monitoramento (Grafana): https://monitoring.rfminsights.com.br
 
 Para acessar o sistema, utilize as credenciais de administrador criadas durante a inicialização do banco de dados:
 

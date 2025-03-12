@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
+
+# Import response utilities
+from .api_utils import success_response, error_response
+from .schemas import ResponseSuccess, ResponseError, UserResponse, TokenResponse
 
 from . import models
 from .database import get_db
@@ -21,7 +25,7 @@ from ..config import config
 router = APIRouter()
 
 # Token endpoint
-@router.post("/token")
+@router.post("/token", response_model=ResponseSuccess[TokenResponse], description="Authenticate user and return access token")
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
@@ -41,10 +45,19 @@ async def login_for_access_token(
         expires_delta=access_token_expires
     )
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    token_data = {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "expires_in": config.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    }
+    
+    return success_response(
+        data=token_data,
+        message="Authentication successful"
+    )
 
 # Register endpoint
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=ResponseSuccess, description="Register a new user")
 async def register_user(user_data: dict, db: Session = Depends(get_db)):
     """Register a new user"""
     # Check if email already exists
@@ -70,22 +83,27 @@ async def register_user(user_data: dict, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
-    return {"message": "Usuário cadastrado com sucesso"}
+    return success_response(message="Usuário cadastrado com sucesso")
 
 # User profile endpoint
-@router.get("/me")
+@router.get("/me", response_model=ResponseSuccess[UserResponse], description="Get current user profile")
 async def get_user_profile(current_user = Depends(get_current_active_user)):
     """Get current user profile"""
-    return {
+    user_data = {
         "id": current_user.id,
         "email": current_user.email,
         "name": current_user.name,
         "company": current_user.company,
         "is_admin": current_user.is_admin
     }
+    
+    return success_response(
+        data=user_data,
+        message="User profile retrieved successfully"
+    )
 
 # Update user profile endpoint
-@router.put("/me")
+@router.put("/me", response_model=ResponseSuccess, description="Update current user profile")
 async def update_user_profile(
     user_data: dict,
     current_user = Depends(get_current_active_user),
@@ -105,10 +123,10 @@ async def update_user_profile(
     db.commit()
     db.refresh(current_user)
     
-    return {"message": "Perfil atualizado com sucesso"}
+    return success_response(message="Perfil atualizado com sucesso")
 
 # Password reset request endpoint
-@router.post("/password-reset")
+@router.post("/password-reset", response_model=ResponseSuccess, description="Request password reset")
 async def request_password_reset(email_data: dict, db: Session = Depends(get_db)):
     """Request password reset"""
     email = email_data.get("email")
@@ -122,15 +140,15 @@ async def request_password_reset(email_data: dict, db: Session = Depends(get_db)
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         # Don't reveal that the user doesn't exist
-        return {"message": "Se o email estiver cadastrado, você receberá um link para redefinir sua senha"}
+        return success_response(message="Se o email estiver cadastrado, você receberá um link para redefinir sua senha")
     
     # In a real application, generate a reset token and send email
     # For this example, we'll just return a success message
     
-    return {"message": "Se o email estiver cadastrado, você receberá um link para redefinir sua senha"}
+    return success_response(message="Se o email estiver cadastrado, você receberá um link para redefinir sua senha")
 
 # Password reset confirmation endpoint
-@router.post("/password-reset/confirm")
+@router.post("/password-reset/confirm", response_model=ResponseSuccess, description="Reset password with token")
 async def reset_password(reset_data: dict, db: Session = Depends(get_db)):
     """Reset password with token"""
     token = reset_data.get("token")
@@ -145,4 +163,4 @@ async def reset_password(reset_data: dict, db: Session = Depends(get_db)):
     # In a real application, validate the token and find the user
     # For this example, we'll just return a success message
     
-    return {"message": "Senha redefinida com sucesso"}
+    return success_response(message="Senha redefinida com sucesso")

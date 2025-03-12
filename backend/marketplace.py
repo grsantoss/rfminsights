@@ -1,8 +1,8 @@
 # RFM Insights Marketplace API
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import os
 import openai
@@ -12,6 +12,10 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from reportlab.lib.units import inch
+
+# Import response utilities
+from .api_utils import success_response, error_response, paginated_response
+from .schemas import ResponseSuccess, ResponseError, PaginatedResponseSuccess
 
 from .. import models
 from ..config import config
@@ -28,7 +32,7 @@ PDF_DIR = "pdfs"
 os.makedirs(PDF_DIR, exist_ok=True)
 
 # Message generation endpoint
-@router.post("/generate-message")
+@router.post("/generate-message", response_model=ResponseSuccess[Dict[str, Any]], description="Generate marketing messages for RFM segments")
 async def generate_message(
     data: dict,
     background_tasks: BackgroundTasks,
@@ -47,7 +51,7 @@ async def generate_message(
     
     # Validate required fields
     if not all([message_type, company_name, company_description, segment, objective, tone]):
-        raise HTTPException(status_code=400, detail="Campos obrigatórios não preenchidos")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Campos obrigatórios não preenchidos")
     
     # Get character limit based on message type
     char_limit = config.MESSAGE_LIMITS.get(message_type, 500)
@@ -55,7 +59,7 @@ async def generate_message(
     # Get prompt template based on message type
     prompt_template = config.PROMPT_TEMPLATES.get(message_type)
     if not prompt_template:
-        raise HTTPException(status_code=400, detail="Tipo de mensagem inválido")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de mensagem inválido")
     
     # Number of messages to generate in sequence
     num_messages = 5
@@ -172,7 +176,7 @@ async def regenerate_message(
     # Get prompt template based on message type
     prompt_template = config.PROMPT_TEMPLATES.get(message_type)
     if not prompt_template:
-        raise HTTPException(status_code=400, detail="Tipo de mensagem inválido")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de mensagem inválido")
     
     # Format prompt with data
     prompt = prompt_template.format(
