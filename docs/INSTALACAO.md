@@ -83,7 +83,16 @@ Acesse `https://seu-servidor:9443` e crie uma senha de administrador.
 ### 3.1 Criar Estrutura de Diretórios
 
 ```bash
+# Criar diretórios principais
 mkdir -p ~/rfminsights/{app,nginx,postgres,portainer}
+
+# Criar subdiretórios necessários para o Nginx
+mkdir -p ~/rfminsights/nginx/{conf.d,ssl,logs}
+
+# Verificar a criação dos diretórios
+ls -la ~/rfminsights
+ls -la ~/rfminsights/nginx
+
 cd ~/rfminsights
 ```
 

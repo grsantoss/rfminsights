@@ -130,6 +130,26 @@ services:
         limits:
           cpus: '0.25'
           memory: 256M
+          
+  # Serviço do Portainer para gerenciamento de contêineres
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: rfminsights-portainer
+    restart: always
+    ports:
+      - "${PORTAINER_PORT:-9443}:9443"
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - rfminsights-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--no-check-certificate", "https://localhost:9443/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 networks:
   rfminsights-network:
