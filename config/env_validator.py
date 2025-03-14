@@ -47,22 +47,35 @@ class EnvValidator:
         return True
     
     def validate_sensitive_vars(self) -> bool:
-        """Check if sensitive variables have been changed from default values"""
+        """Check if sensitive variables have been changed from default values and have sufficient security"""
         unchanged_vars = []
+        insecure_vars = []
         
         for var in self.sensitive_vars:
             env_value = os.getenv(var)
             if env_value and var in self.default_values:
                 if env_value == self.default_values[var]:
                     unchanged_vars.append(var)
+            
+            # Additional security checks for specific variables
+            if var == 'JWT_SECRET_KEY' and env_value and len(env_value) < 32:
+                insecure_vars.append(f"{var} (too short, should be at least 32 characters)")
+        
+        has_errors = False
         
         if unchanged_vars:
             error_msg = f"Default values detected for sensitive variables: {', '.join(unchanged_vars)}"
             self.validation_errors.append(error_msg)
             logger.warning(error_msg)
-            return False
+            has_errors = True
         
-        return True
+        if insecure_vars:
+            error_msg = f"Insecure values detected for sensitive variables: {', '.join(insecure_vars)}"
+            self.validation_errors.append(error_msg)
+            logger.warning(error_msg)
+            has_errors = True
+        
+        return not has_errors
     
     def validate_database_url(self) -> bool:
         """Validate database URL format"""

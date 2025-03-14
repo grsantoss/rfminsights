@@ -6,7 +6,7 @@ Este guia fornece instruções detalhadas para instalar e configurar o RFM Insig
 
 - Servidor Linux (Ubuntu 20.04 LTS ou superior recomendado)
 - Docker e Docker Compose instalados
-- Domínios configurados (ap.rfminsights.com.br e api.rfminsights.com.br)
+- Domínios configurados (app.rfminsights.com.br e api.rfminsights.com.br)
 - Acesso root ou sudo ao servidor
 
 ## 1. Preparação do Ambiente
@@ -242,13 +242,13 @@ http {
 EOL
 ```
 
-Crie a configuração para o frontend (ap.rfminsights.com.br):
+Crie a configuração para o frontend (app.rfminsights.com.br):
 
 ```bash
 cat > ~/rfminsights/nginx/conf.d/frontend.conf << 'EOL'
 server {
     listen 80;
-    server_name ap.rfminsights.com.br;
+    server_name app.rfminsights.com.br;
 
     # Redirecionar HTTP para HTTPS
     location / {
@@ -258,7 +258,7 @@ server {
 
 server {
     listen 443 ssl;
-    server_name ap.rfminsights.com.br;
+    server_name app.rfminsights.com.br;
 
     # Certificados SSL
     ssl_certificate /etc/nginx/ssl/frontend.crt;
@@ -371,13 +371,17 @@ EOL
 Crie a pasta do aplicativo e configure o arquivo .env:
 
 ```bash
-# Criar diretório para a aplicação
-mkdir -p ~/rfminsights/app
+# Verificar se o diretório da aplicação já existe
+if [ ! -d "$INSTALL_DIR/app" ]; then
+    # Criar diretório para a aplicação se não existir
+    mkdir -p "$INSTALL_DIR/app"
+    echo "Diretório da aplicação criado em $INSTALL_DIR/app"
+fi
 
 # Verificar se o arquivo .env.example existe no diretório atual
 if [ -f ".env.example" ]; then
     # Se existir, copiar para o diretório da aplicação
-    cp .env.example ~/rfminsights/app/.env
+    cp .env.example "$INSTALL_DIR/app/.env"
     echo "Arquivo .env.example copiado com sucesso."
 else
     # Se não existir, criar o arquivo .env diretamente
@@ -506,48 +510,89 @@ RFMInsights/
 Copie os arquivos do projeto para a pasta do aplicativo:
 
 ```bash
-# Copiar todos os arquivos do projeto para a pasta do aplicativo
-cp -r * ~/rfminsights/app/
+# Verificar se estamos no diretório do projeto ou se precisamos clonar do repositório
+if [ -f "./docker-compose.yml" ] && [ -f "./Dockerfile" ]; then
+    # Estamos no diretório do projeto, copiar arquivos locais
+    cp -r ./{backend,config,frontend,migrations,monitoring,scripts,tests,*.py,*.ini,requirements.txt,Dockerfile*,docker-compose*.yml} "$INSTALL_DIR/app/" 2>/dev/null || echo "Alguns arquivos não foram encontrados, mas isso pode ser normal."
+    
+    # Copiar arquivos ocultos importantes
+    cp .env.example "$INSTALL_DIR/app/.env" 2>/dev/null || echo "Arquivo .env.example não encontrado."
+    cp .env.monitoring "$INSTALL_DIR/app/.env.monitoring" 2>/dev/null || echo "Arquivo .env.monitoring não encontrado."
+    
+    echo "Arquivos do projeto copiados com sucesso para $INSTALL_DIR/app/"
+else
+    echo "AVISO: Não foi possível encontrar os arquivos do projeto no diretório atual."
+    echo "Você precisa clonar o repositório ou copiar os arquivos manualmente para $INSTALL_DIR/app/"
+fi
 ```
 
 ## 4. Configuração de SSL
 
-### 4.1 Gerar Certificados SSL Autoassinados (para desenvolvimento)
+A configuração de certificados SSL é essencial para garantir a segurança das comunicações. O RFM Insights agora inclui scripts automatizados para facilitar este processo.
 
-```bash
-# Gerar certificado para o frontend
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout ~/rfminsights/nginx/ssl/frontend.key \
-    -out ~/rfminsights/nginx/ssl/frontend.crt \
-    -subj "/C=BR/ST=Estado/L=Cidade/O=RFMInsights/CN=ap.rfminsights.com.br"
+### 4.1 Preparação da Estrutura de Diretórios
 
-# Gerar certificado para a API
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout ~/rfminsights/nginx/ssl/api.key \
-    -out ~/rfminsights/nginx/ssl/api.crt \
-    -subj "/C=BR/ST=Estado/L=Cidade/O=RFMInsights/CN=api.rfminsights.com.br"
+#### No Windows
+
+```powershell
+# Execute o script para criar a estrutura de diretórios
+.\scripts\create_nginx_structure.ps1
 ```
 
-### 4.2 Configurar Certificados Let's Encrypt (para produção)
-
-Para ambiente de produção, é recomendado usar certificados válidos do Let's Encrypt:
+#### No Linux
 
 ```bash
-# Instalar Certbot
-sudo apt install -y certbot python3-certbot-nginx
+# Criar estrutura de diretórios
+mkdir -p ~/rfminsights/nginx/{conf.d,ssl,logs}
+```
 
-# Obter certificados para os domínios
-sudo certbot --nginx -d ap.rfminsights.com.br -d api.rfminsights.com.br
+### 4.2 Configuração Automatizada de Certificados
 
-# Copiar certificados para a pasta do Nginx
-sudo cp /etc/letsencrypt/live/ap.rfminsights.com.br/fullchain.pem ~/rfminsights/nginx/ssl/frontend.crt
-sudo cp /etc/letsencrypt/live/ap.rfminsights.com.br/privkey.pem ~/rfminsights/nginx/ssl/frontend.key
-sudo cp /etc/letsencrypt/live/api.rfminsights.com.br/fullchain.pem ~/rfminsights/nginx/ssl/api.crt
-sudo cp /etc/letsencrypt/live/api.rfminsights.com.br/privkey.pem ~/rfminsights/nginx/ssl/api.key
+#### No Windows
 
-# Ajustar permissões
+```powershell
+# Execute o script de configuração SSL
+.\scripts\ssl_setup.ps1
+```
+
+Escolha a opção 1 para gerar certificados autoassinados para desenvolvimento.
+
+#### No Linux
+
+```bash
+# Execute o script de configuração SSL
+bash ./scripts/ssl_setup.sh
+```
+
+Escolha a opção 1 para gerar certificados autoassinados (desenvolvimento) ou a opção 2 para configurar certificados Let's Encrypt (produção).
+
+### 4.3 Verificação de Certificados
+
+Para verificar se os certificados foram instalados corretamente, execute o mesmo script de configuração e escolha a opção 3:
+
+```bash
+# No Linux
+bash ./scripts/ssl_setup.sh
+# Escolha a opção 3
+```
+
+```powershell
+# No Windows
+.\scripts\ssl_setup.ps1
+# Escolha a opção 3
+```
+
+### 4.4 Solução de Problemas com Certificados
+
+Se encontrar problemas com os certificados, consulte o guia detalhado em `docs/SSL_SETUP.md`.
+
+```bash
+# Ajustar permissões (Linux)
 sudo chmod 644 ~/rfminsights/nginx/ssl/*.crt
 sudo chmod 600 ~/rfminsights/nginx/ssl/*.key
+
+# Reiniciar o Nginx
+docker-compose restart nginx-proxy
 ```
 
 ## 5. Implantação com Docker Compose
@@ -597,7 +642,7 @@ docker-compose logs nginx-proxy
 curl -k https://api.rfminsights.com.br/
 
 # Testar conectividade com o frontend
-curl -k https://ap.rfminsights.com.br/
+curl -k https://app.rfminsights.com.br/
 ```
 
 ### 6.3 Configurar Verificações de Saúde Automáticas
@@ -623,7 +668,7 @@ fi
 
 # Verificar Frontend
 echo "\nVerificando Frontend..."
-FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -k https://ap.rfminsights.com.br/)
+FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -k https://app.rfminsights.com.br/)
 if [ "$FRONTEND_STATUS" == "200" ]; then
     echo "Frontend está funcionando (status: $FRONTEND_STATUS)"
 else
@@ -1048,7 +1093,7 @@ A documentação inclui todos os endpoints, parâmetros, exemplos de requisiçõ
 
 Parabéns! Você concluiu a instalação e configuração do RFM Insights utilizando Docker, Portainer e Nginx. A aplicação agora está disponível nos seguintes endereços:
 
-- Frontend: https://ap.rfminsights.com.br
+- Frontend: https://app.rfminsights.com.br
 - API: https://api.rfminsights.com.br
 - Documentação da API: https://api.rfminsights.com.br/docs
 - Monitoramento (Grafana): https://monitoring.rfminsights.com.br

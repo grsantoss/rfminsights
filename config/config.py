@@ -1,27 +1,55 @@
 # RFM Insights Configuration File
 
 import os
+import logging
 from dotenv import load_dotenv
+from .env_validator import check_environment
 
 # Load environment variables
 load_dotenv()
+
+# Setup logger
+logger = logging.getLogger('app.config')
+
+# Validate environment variables
+check_environment()
 
 # Database Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/rfminsights")
 
 # JWT Configuration
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-should-be-very-long-and-secure")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY or len(JWT_SECRET_KEY) < 32:
+    logger.warning("JWT_SECRET_KEY is missing or too short (should be at least 32 characters)")
+
 JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "30"))
 
 # Amazon SES Configuration for Email
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
-EMAIL_SENDER = os.getenv("EMAIL_SENDER", "noreply@rfminsights.com")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+
+# Validate AWS credentials if provided
+if (AWS_ACCESS_KEY_ID and not AWS_SECRET_ACCESS_KEY) or (not AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY):
+    logger.warning("Both AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be provided together")
+
+# Log masked version of AWS credentials for debugging
+if AWS_ACCESS_KEY_ID:
+    masked_key_id = AWS_ACCESS_KEY_ID[:4] + "*" * (len(AWS_ACCESS_KEY_ID) - 8) + AWS_ACCESS_KEY_ID[-4:] if len(AWS_ACCESS_KEY_ID) > 8 else "****"
+    logger.debug(f"Using AWS Access Key ID: {masked_key_id}")
+
+EMAIL_SENDER = os.getenv("EMAIL_SENDER", "noreply@rfminsights.com.br")
 
 # OpenAI Configuration
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    logger.warning("OPENAI_API_KEY is missing")
+else:
+    # Log masked version of the key for debugging
+    masked_key = OPENAI_API_KEY[:4] + "*" * (len(OPENAI_API_KEY) - 8) + OPENAI_API_KEY[-4:] if len(OPENAI_API_KEY) > 8 else "****"
+    logger.debug(f"Using OpenAI API Key: {masked_key}")
+
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 # Message Generation Configuration
