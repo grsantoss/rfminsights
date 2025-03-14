@@ -368,16 +368,30 @@ EOL
 
 ### 3.4 Configurar Arquivo .env
 
-Copie o arquivo .env.example para a pasta do aplicativo e configure-o:
+Crie a pasta do aplicativo e configure o arquivo .env:
 
 ```bash
+# Criar diretório para a aplicação
 mkdir -p ~/rfminsights/app
-cp .env.example ~/rfminsights/app/.env
+
+# Verificar se o arquivo .env.example existe no diretório atual
+if [ -f ".env.example" ]; then
+    # Se existir, copiar para o diretório da aplicação
+    cp .env.example ~/rfminsights/app/.env
+    echo "Arquivo .env.example copiado com sucesso."
+else
+    # Se não existir, criar o arquivo .env diretamente
+    echo "Arquivo .env.example não encontrado. Criando arquivo .env diretamente."
+fi
 ```
 
-Edite o arquivo .env com as configurações corretas:
+Edite o arquivo .env com as configurações corretas (isso substituirá qualquer conteúdo existente):
 
 ```bash
+# Gerar uma chave JWT segura
+JWT_KEY=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p)
+
+# Criar ou substituir o arquivo .env com as configurações corretas
 cat > ~/rfminsights/app/.env << 'EOL'
 # RFM Insights - Environment Variables
 
@@ -385,21 +399,24 @@ cat > ~/rfminsights/app/.env << 'EOL'
 DATABASE_URL=postgresql://rfminsights:rfminsights_password@postgres/rfminsights
 
 # JWT Configuration
-JWT_SECRET_KEY=sua-chave-secreta-muito-longa-e-segura
+JWT_SECRET_KEY=${JWT_KEY:-c8b74a279c95a740853a6c5b95eb985c12345f789abcdef0123456789abcdef0}
 JWT_EXPIRATION_MINUTES=60
 
 # Amazon SES Configuration for Email
 AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=sua-aws-access-key
-AWS_SECRET_ACCESS_KEY=sua-aws-secret-key
+# Credenciais da AWS
+# ATENÇÃO: Substitua por credenciais reais ou deixe em branco se não usar email
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
 EMAIL_SENDER=noreply@rfminsights.com.br
 
 # OpenAI Configuration
-OPENAI_API_KEY=sua-openai-api-key
+# OBRIGATÓRIO: Substitua por uma chave de API válida da OpenAI
+OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 
 # Frontend URL
-FRONTEND_URL=https://ap.rfminsights.com.br
+FRONTEND_URL=https://app.rfminsights.com.br
 
 # Server Configuration
 PORT=8000
@@ -407,7 +424,14 @@ ENVIRONMENT=production
 
 # Logging Configuration
 LOG_LEVEL=info
+
+# Nginx Configuration
+NGINX_HOST=app.rfminsights.com.br
+API_HOST=api.rfminsights.com.br
 EOL
+
+echo "Arquivo .env configurado com sucesso."
+echo "IMPORTANTE: Edite o arquivo ~/rfminsights/app/.env e configure suas chaves de API e outras configurações específicas."
 ```
 
 ### 3.5 Estrutura de Arquivos do Projeto
