@@ -7,7 +7,7 @@ services:
       context: .
       dockerfile: Dockerfile.optimized
     container_name: rfminsights-api
-    restart: always
+    restart: on-failure:3
     volumes:
       - ./:/app
       - ./data:/app/data
@@ -24,6 +24,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    command: ["/bin/bash", "-c", "chmod +x /app/scripts/startup.sh && /app/scripts/startup.sh uvicorn main:app --host 0.0.0.0 --port 8000"]
     deploy:
       resources:
         limits:

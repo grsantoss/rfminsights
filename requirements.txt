@@ -48,6 +48,9 @@ xgboost==2.0.2  # Gradient boosting
 matplotlib==3.8.2  # Data visualization
 seaborn==0.13.0  # Statistical data visualization
 
+# PDF Generation
+reportlab==3.6.13  # PDF generation library
+
 # Note: These exact versions have been tested together and are known to be compatible.
 # When upgrading any package, test thoroughly as dependencies between packages
 # (especially FastAPI, Pydantic, and SQLAlchemy) can cause compatibility issues.
