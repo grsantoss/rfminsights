@@ -53,6 +53,28 @@ if [ "$API_STATUS" == "200" ] || [ "$API_STATUS" == "401" ]; then
     echo -e "${GREEN}API está funcionando (status: $API_STATUS)${NC}"
 else
     echo -e "${RED}ERRO: API não está respondendo corretamente (status: $API_STATUS)${NC}"
+    
+    # Verificar API internamente
+    echo -e "Verificando API internamente..."
+    INTERNAL_API_STATUS=$(docker exec rfminsights-api curl -s -f http://localhost:8000/health 2>/dev/null || echo "Falha")
+    if [[ "$INTERNAL_API_STATUS" == *"healthy"* ]]; then
+        echo -e "${YELLOW}API está funcionando internamente, mas não está acessível externamente.${NC}"
+        echo -e "${YELLOW}Possível problema com o proxy reverso ou configuração de rede.${NC}"
+    else
+        echo -e "${RED}API não está funcionando nem internamente.${NC}"
+    fi
+fi
+
+# Verificar comunicação entre containers
+echo -e "\nVerificando comunicação entre containers..."
+NGINX_API_COMM=$(docker exec rfminsights-nginx-proxy curl -s -I http://api:8000/health 2>/dev/null || echo "Falha")
+if [[ "$NGINX_API_COMM" == *"200 OK"* ]]; then
+    echo -e "${GREEN}Comunicação entre nginx-proxy e api está funcionando corretamente${NC}"
+else
+    echo -e "${RED}ERRO: Falha na comunicação entre nginx-proxy e api${NC}"
+    echo -e "${YELLOW}Resposta: $NGINX_API_COMM${NC}"
+    echo -e "${YELLOW}Verificando configuração de rede...${NC}"
+    docker network inspect rfminsights-network | grep -A 10 "Containers"
 fi
 
 # Verificar Frontend
@@ -62,6 +84,15 @@ if [ "$FRONTEND_STATUS" == "200" ]; then
     echo -e "${GREEN}Frontend está funcionando (status: $FRONTEND_STATUS)${NC}"
 else
     echo -e "${RED}ERRO: Frontend não está respondendo corretamente (status: $FRONTEND_STATUS)${NC}"
+    
+    # Verificar comunicação entre nginx-proxy e frontend
+    NGINX_FRONTEND_COMM=$(docker exec rfminsights-nginx-proxy curl -s -I http://frontend 2>/dev/null || echo "Falha")
+    if [[ "$NGINX_FRONTEND_COMM" == *"200 OK"* ]]; then
+        echo -e "${YELLOW}Frontend está acessível internamente, mas não externamente.${NC}"
+        echo -e "${YELLOW}Possível problema com configuração do Nginx.${NC}"
+    else
+        echo -e "${RED}Frontend não está acessível nem internamente.${NC}"
+    fi
 fi
 
 # Verificar Banco de Dados

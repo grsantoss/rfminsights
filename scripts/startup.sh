@@ -38,13 +38,26 @@ for package in "${CRITICAL_PACKAGES[@]}"; do
     fi
 done
 
-# Check for database connection
-echo "[$(date)] Checking database connection..."
-if python -c "import sqlalchemy; from sqlalchemy import create_engine; import os; engine = create_engine(os.getenv('DATABASE_URL')); conn = engine.connect(); conn.close()" &>/dev/null; then
-    echo "[$(date)] ✅ Database connection successful"
+# Run database health check to ensure PostgreSQL is ready before proceeding
+echo "[$(date)] Running database health check..."
+if [ -f "/app/scripts/db_healthcheck.py" ]; then
+    chmod +x /app/scripts/db_healthcheck.py
+    python /app/scripts/db_healthcheck.py --max-retries 30 --retry-interval 2
+    if [ $? -eq 0 ]; then
+        echo "[$(date)] ✅ Database health check passed. PostgreSQL is ready."
+    else
+        echo "[$(date)] ⚠️ Database health check failed. PostgreSQL may not be ready, but continuing anyway..."
+        # Don't fail here, as the application might handle this gracefully
+    fi
 else
-    echo "[$(date)] ⚠️ Could not connect to database. Check DATABASE_URL environment variable."
-    # Don't fail here, as the application might handle this gracefully
+    echo "[$(date)] ⚠️ Database health check script not found. Falling back to basic check..."
+    # Fallback to basic database connection check
+    if python -c "import sqlalchemy; from sqlalchemy import create_engine; import os; engine = create_engine(os.getenv('DATABASE_URL')); conn = engine.connect(); conn.close()" &>/dev/null; then
+        echo "[$(date)] ✅ Database connection successful"
+    else
+        echo "[$(date)] ⚠️ Could not connect to database. Check DATABASE_URL environment variable."
+        # Don't fail here, as the application might handle this gracefully
+    fi
 fi
 
 # Create health endpoint if it doesn't exist
