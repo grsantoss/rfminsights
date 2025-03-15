@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# RFM Insights - Script de Instalação Aprimorado
+# RFM Insights - Script de Instalação Unificado
 # Este script corrige problemas conhecidos na instalação do RFM Insights
 
 # Definir cores para saída
@@ -41,7 +41,7 @@ check_status() {
 if [ "$(id -u)" != "0" ]; then
     error "Este script deve ser executado como root (sudo)."
     exit 1
- fi
+fi
 
 # Criar diretório de instalação
 INSTALL_DIR="/opt/rfminsights"
@@ -109,10 +109,12 @@ log "Copiando arquivos do projeto..."
 if [ -f "./docker-compose.yml" ] && [ -f "./Dockerfile.optimized" ]; then
     # Estamos no diretório do projeto, copiar arquivos locais
     cp -r ./* "$INSTALL_DIR/app/"
-    cp ./.env.example "$INSTALL_DIR/app/.env" 2>/dev/null || warning "Arquivo .env.example não encontrado. Criando .env manualmente."
+    # Copiar arquivos ocultos também
+    cp -r ./.env* "$INSTALL_DIR/app/" 2>/dev/null || warning "Arquivos .env* não encontrados."
     
     # Se .env.example não existir, criar .env manualmente
     if [ ! -f "$INSTALL_DIR/app/.env" ]; then
+        log "Criando arquivo .env manualmente..."
         cat > "$INSTALL_DIR/app/.env" << 'EOL'
 # RFM Insights - Environment Variables
 
@@ -154,11 +156,9 @@ EOL
         success "Arquivo .env criado manualmente"
     fi
     
-    # Copiar arquivo de monitoramento
-    cp ./.env.monitoring "$INSTALL_DIR/app/.env.monitoring" 2>/dev/null || warning "Arquivo .env.monitoring não encontrado. Criando manualmente."
-    
     # Se .env.monitoring não existir, criar manualmente
     if [ ! -f "$INSTALL_DIR/app/.env.monitoring" ]; then
+        log "Criando arquivo .env.monitoring manualmente..."
         cat > "$INSTALL_DIR/app/.env.monitoring" << 'EOL'
 # RFM Insights - Monitoring Environment Variables
 
@@ -195,14 +195,14 @@ else
     
     if [ "$clone_repo" = "s" ] || [ "$clone_repo" = "S" ]; then
         apt install -y git
-        git clone https://github.com/seu-usuario/rfminsights.git temp_repo
+        git clone https://github.com/seu-usu/rfminsights.git temp_repo
         cp -r temp_repo/* "$INSTALL_DIR/app/"
-        cp temp_repo/.env.example "$INSTALL_DIR/app/.env" 2>/dev/null || warning "Arquivo .env.example não encontrado no repositório."
-        cp temp_repo/.env.monitoring "$INSTALL_DIR/app/.env.monitoring" 2>/dev/null || warning "Arquivo .env.monitoring não encontrado no repositório."
+        cp -r temp_repo/.env* "$INSTALL_DIR/app/" 2>/dev/null || warning "Arquivos .env* não encontrados no repositório."
         rm -rf temp_repo
         
         # Criar .env manualmente se não existir
         if [ ! -f "$INSTALL_DIR/app/.env" ]; then
+            log "Criando arquivo .env manualmente..."
             cat > "$INSTALL_DIR/app/.env" << 'EOL'
 # RFM Insights - Environment Variables
 
@@ -246,6 +246,7 @@ EOL
         
         # Criar .env.monitoring manualmente se não existir
         if [ ! -f "$INSTALL_DIR/app/.env.monitoring" ]; then
+            log "Criando arquivo .env.monitoring manualmente..."
             cat > "$INSTALL_DIR/app/.env.monitoring" << 'EOL'
 # RFM Insights - Monitoring Environment Variables
 
@@ -329,4 +330,9 @@ services:
       test: ["CMD", "wget", "-qO-", "http://localhost:80/health.html"]
       interval: 30s
       timeout: 10s
-      ret
+      retries: 3
+      start_period: 10s
+
+  # Serviço do Banco de Dados PostgreSQL
+  postgres:
+    image: postgres:14-alpine

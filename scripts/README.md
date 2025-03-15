@@ -1,53 +1,56 @@
-# RFM Insights - Scripts de Instalação Aprimorados
+# RFM Insights - Scripts de Instalação e Manutenção
 
-Este diretório contém scripts aprimorados para a instalação do RFM Insights, corrigindo diversos problemas encontrados no processo de instalação original.
-
-## Problemas Corrigidos
-
-1. **Avisos de Depreciação do apt-key**
-   - Substituído o método antigo `apt-key add` pelo método moderno usando `/etc/apt/keyrings`
-   - Eliminado o aviso: `Warning: apt-key is deprecated. Manage keyring files in trusted.gpg.d instead`
-
-2. **Problemas com Arquivos .env**
-   - Corrigido o erro: `cp: cannot stat '.env.example': No such file or directory`
-   - Adicionada verificação da existência dos arquivos antes de copiá-los
-   - Criação automática dos arquivos .env e .env.monitoring caso não existam
-
-3. **Problemas com Certificados SSL**
-   - Melhorada a geração de certificados SSL autoassinados
-   - Adicionadas instruções claras para configuração de certificados Let's Encrypt
-   - Corrigidas as permissões dos arquivos de certificado
-
-4. **Hierarquia de Arquivos**
-   - Reorganizada a estrutura de diretórios para garantir consistência
-   - Corrigidos caminhos absolutos em todos os scripts
-   - Melhorada a cópia de arquivos do projeto para o diretório de instalação
+Este diretório contém scripts para instalação e manutenção do RFM Insights.
 
 ## Scripts Disponíveis
 
 ### 1. `install.sh`
 
-Script principal que realiza a primeira parte da instalação:
+Script unificado de instalação para ambientes Linux:
 - Atualiza o sistema
 - Instala dependências
 - Configura o Docker usando o método moderno (sem apt-key)
 - Cria a estrutura de diretórios
-- Copia os arquivos do projeto
-
-### 2. `install_part2.sh`
-
-Continuação do script de instalação:
-- Cria o arquivo docker-compose.yml
 - Configura o Nginx
 - Gera certificados SSL autoassinados
 - Inicia os serviços
 
-### 3. `install_part3.sh`
+### 2. `backup.sh`
 
-Finalização da instalação:
-- Cria scripts de verificação de saúde
-- Configura backup automático
-- Adiciona scripts ao crontab
+Script para backup automático do banco de dados:
+- Realiza backup do PostgreSQL
+- Comprime os arquivos de backup
+- Mantém um histórico de backups
+- Remove backups antigos conforme configuração
+
+### 3. `db_healthcheck.py`
+
+Script Python para verificar a saúde do banco de dados:
+- Verifica a conexão com o PostgreSQL
+- Realiza tentativas de reconexão
+- Fornece feedback detalhado sobre o status
+
+### 4. `startup.sh`
+
+Script de inicialização para o contêiner Docker:
+- Verifica dependências Python
+- Instala pacotes faltantes
+- Executa verificação de saúde do banco de dados
+- Inicia a aplicação
+
+### 5. `ssl_setup.ps1`
+
+Script PowerShell para configuração de SSL em ambientes Windows:
+- Gera certificados autoassinados
+- Configura certificados Let's Encrypt
+- Verifica a validade dos certificados
+
+### 6. `create_nginx_structure.ps1`
+
+Script PowerShell para criar a estrutura de diretórios do Nginx em ambientes Windows:
+- Cria diretórios para configurações
+- Cria diretórios para certificados SSL
+- Cria diretórios para logs
 - Cria script de atualização
 - Gera documentação
 

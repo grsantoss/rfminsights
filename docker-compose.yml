@@ -5,7 +5,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile.optimized
+      dockerfile: Dockerfile
     container_name: rfminsights-api
     restart: unless-stopped
     volumes:
@@ -161,6 +161,8 @@ networks:
 volumes:
   postgres_data:
     driver: local
+  portainer_data:
+    driver: local  
 
 # Docker Swarm deployment configuration
 # Uncomment and adjust the following section when deploying with Docker Swarm
