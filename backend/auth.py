@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional
 
-from ..config import config
-from . import models
-from .database import get_db
+from config import config
+from backend import models
+from backend.database import get_db
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

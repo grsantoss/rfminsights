@@ -8,15 +8,10 @@ services:
       dockerfile: Dockerfile
     container_name: rfminsights-api
     restart: unless-stopped
+    ports:
+      - "8000:8000"
     volumes:
-      - ./backend:/app/backend
-      - ./config:/app/config
-      - ./scripts:/app/scripts
-      - ./migrations:/app/migrations
-      - ./main.py:/app/main.py
-      - ./__init__.py:/app/__init__.py
-      - ./requirements.txt:/app/requirements.txt
-      - ./data:/app/data
+      - ./:/app:delegated
     env_file:
       - ./.env
     depends_on:

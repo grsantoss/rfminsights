@@ -15,8 +15,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 load_dotenv()
 
 # Import models
-from .models import Base
-from ..config import config
+from backend.models import Base
+from config import config
 
 # Create database engine
 engine = create_engine(config.DATABASE_URL)

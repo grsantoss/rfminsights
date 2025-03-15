@@ -1,6 +1,7 @@
 # RFM Insights Marketplace API
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -14,13 +15,13 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from reportlab.lib.units import inch
 
 # Import response utilities
-from .api_utils import success_response, error_response, paginated_response
-from .schemas import ResponseSuccess, ResponseError, PaginatedResponseSuccess
+from backend.api_utils import success_response, error_response, paginated_response
+from backend.schemas import ResponseSuccess, ResponseError, PaginatedResponseSuccess
 
-from .. import models
-from ..config import config
-from .auth import get_current_user
-from .database import get_db
+from backend import models
+from config import config
+from backend.auth import get_current_user
+from backend.database import get_db
 
 router = APIRouter()
 

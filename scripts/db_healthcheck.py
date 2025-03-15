@@ -64,22 +64,38 @@ def check_database_connection(max_retries=30, retry_interval=2):
     return False
 
 def main():
-    parser = argparse.ArgumentParser(description="RFM Insights Database Health Check")
-    parser.add_argument('--max-retries', type=int, default=30, help='Maximum number of connection attempts')
-    parser.add_argument('--retry-interval', type=int, default=2, help='Seconds to wait between retries')
-    parser.add_argument('--exit-on-failure', action='store_true', help='Exit with error code if connection fails')
-    
+    parser = argparse.ArgumentParser(description="Check if PostgreSQL database is ready")
+    parser.add_argument("--max-retries", type=int, default=30, help="Maximum number of connection attempts")
+    parser.add_argument("--retry-interval", type=int, default=2, help="Seconds to wait between retries")
     args = parser.parse_args()
     
-    success = check_database_connection(
-        max_retries=args.max_retries,
-        retry_interval=args.retry_interval
-    )
-    
-    if not success and args.exit_on_failure:
-        sys.exit(1)
-    
-    sys.exit(0 if success else 1)
+    if check_database_connection(args.max_retries, args.retry_interval):
+        sys.exit(0)  # Success
+    else:
+        # Check if the database host is reachable at all
+        try:
+            # Extract host from DATABASE_URL
+            if '@' in DATABASE_URL:
+                host = DATABASE_URL.split('@')[1].split('/')[0]
+                if ':' in host:
+                    host = host.split(':')[0]
+            else:
+                host = 'localhost'
+                
+            # Try a simple socket connection to determine if host is reachable
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2)
+            s.connect((host, 5432))
+            s.close()
+            
+            # Host is reachable but database connection failed
+            print(f"[WARNING] Host {host} is reachable but database connection failed")
+            sys.exit(1)  # Soft failure - host is up but DB connection failed
+        except Exception as e:
+            # Host is not reachable at all
+            print(f"[ERROR] Host is not reachable: {str(e)}")
+            sys.exit(2)  # Hard failure - host is down
 
 if __name__ == "__main__":
     main()

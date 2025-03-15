@@ -43,11 +43,18 @@ echo "[$(date)] Running database health check..."
 if [ -f "/app/scripts/db_healthcheck.py" ]; then
     chmod +x /app/scripts/db_healthcheck.py
     python /app/scripts/db_healthcheck.py --max-retries 30 --retry-interval 2
-    if [ $? -eq 0 ]; then
+    DB_CHECK_RESULT=$?
+    if [ $DB_CHECK_RESULT -eq 0 ]; then
         echo "[$(date)] ✅ Database health check passed. PostgreSQL is ready."
     else
-        echo "[$(date)] ⚠️ Database health check failed. PostgreSQL may not be ready, but continuing anyway..."
-        # Don't fail here, as the application might handle this gracefully
+        echo "[$(date)] ⚠️ Database health check failed. PostgreSQL may not be ready."
+        # Only continue if the exit code is 1 (soft failure), exit if it's 2 (hard failure)
+        if [ $DB_CHECK_RESULT -eq 2 ]; then
+            echo "[$(date)] 🛑 Critical database connection error. Exiting..."
+            exit 1
+        else
+            echo "[$(date)] ⚠️ Non-critical database issue. Continuing with caution..."
+        fi
     fi
 else
     echo "[$(date)] ⚠️ Database health check script not found. Falling back to basic check..."

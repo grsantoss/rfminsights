@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any
 from .api_utils import success_response, error_response
 from .schemas import ResponseSuccess, ResponseError, UserResponse, TokenResponse
 
-from . import models
+from backend import models
 from .database import get_db
 from .auth import (
     authenticate_user,
@@ -19,7 +19,7 @@ from .auth import (
     get_current_user,
     get_current_active_user
 )
-from ..config import config
+from config import config
 
 # Create router
 router = APIRouter()
