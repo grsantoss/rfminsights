@@ -141,7 +141,6 @@ services:
     restart: unless-stopped
     ports:
       - "${PORTAINER_PORT:-9443}:9443"
-      - "8000:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data

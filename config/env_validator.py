@@ -12,7 +12,10 @@ class EnvValidator:
     def __init__(self):
         self.required_vars = [
             'DATABASE_URL',
-            'JWT_SECRET_KEY',
+            'JWT_SECRET_KEY'
+        ]
+        
+        self.optional_vars = [
             'OPENAI_API_KEY'
         ]
         
@@ -53,6 +56,11 @@ class EnvValidator:
         
         for var in self.sensitive_vars:
             env_value = os.getenv(var)
+            
+            # Skip validation for optional variables that are not set
+            if not env_value and var in self.optional_vars:
+                continue
+                
             if env_value and var in self.default_values:
                 if env_value == self.default_values[var]:
                     unchanged_vars.append(var)

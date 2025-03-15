@@ -20,7 +20,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/r
 # JWT Configuration
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not JWT_SECRET_KEY or len(JWT_SECRET_KEY) < 32:
-    logger.warning("JWT_SECRET_KEY is missing or too short (should be at least 32 characters)")
+    raise ValueError("JWT_SECRET_KEY is missing or too short. It must be at least 32 characters.")
 
 JWT_ALGORITHM = "HS256"
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "30"))
