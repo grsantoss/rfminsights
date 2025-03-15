@@ -9,6 +9,90 @@ Este guia fornece instruções detalhadas para instalar o RFM Insights, abordand
 - Acesso à internet para baixar imagens Docker
 - OpenSSL (para geração de certificados SSL)
 
+## Instalação do Docker
+
+O RFM Insights utiliza Docker para facilitar a instalação e execução. Siga as instruções abaixo para instalar o Docker em seu sistema operacional.
+
+### Windows
+
+1. Baixe o Docker Desktop para Windows no [site oficial](https://www.docker.com/products/docker-desktop)
+2. Execute o instalador e siga as instruções na tela
+3. Certifique-se de que a virtualização esteja habilitada no BIOS/UEFI do seu sistema
+4. Após a instalação, inicie o Docker Desktop
+5. Verifique a instalação abrindo um terminal PowerShell e executando:
+   ```powershell
+   docker --version
+   docker-compose --version
+   ```
+
+### macOS
+
+1. Baixe o Docker Desktop para Mac no [site oficial](https://www.docker.com/products/docker-desktop)
+2. Arraste o aplicativo Docker para a pasta Aplicativos
+3. Inicie o Docker a partir da pasta Aplicativos
+4. Verifique a instalação abrindo um terminal e executando:
+   ```bash
+   docker --version
+   docker-compose --version
+   ```
+
+### Linux (Ubuntu/Debian)
+
+1. Atualize os pacotes do sistema:
+   ```bash
+   sudo apt update
+   sudo apt upgrade -y
+   ```
+
+2. Instale os pacotes necessários:
+   ```bash
+   sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+   ```
+
+3. Adicione a chave GPG oficial do Docker:
+   ```bash
+   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+   ```
+
+4. Adicione o repositório do Docker:
+   ```bash
+   sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+   ```
+
+5. Atualize os pacotes novamente e instale o Docker:
+   ```bash
+   sudo apt update
+   sudo apt install -y docker-ce docker-ce-cli containerd.io
+   ```
+
+6. Adicione seu usuário ao grupo docker para executar comandos sem sudo:
+   ```bash
+   sudo usermod -aG docker $USER
+   ```
+   (Faça logout e login novamente para aplicar as alterações)
+
+7. Instale o Docker Compose:
+   ```bash
+   sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+   sudo chmod +x /usr/local/bin/docker-compose
+   ```
+
+8. Verifique a instalação:
+   ```bash
+   docker --version
+   docker-compose --version
+   ```
+
+### Verificação da Instalação do Docker
+
+Para verificar se o Docker está funcionando corretamente, execute:
+
+```bash
+docker run hello-world
+```
+
+Você deve ver uma mensagem de confirmação indicando que o Docker está instalado e funcionando corretamente.
+
 ## Instalação Passo a Passo
 
 ### 1. Clonar o Repositório
