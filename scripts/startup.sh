@@ -71,8 +71,8 @@ from typing import Dict, Any
 import sys
 import pkg_resources
 
-from .backend.database import get_db
-from .backend.api_utils import success_response
+from backend.database import get_db
+from backend.api_utils import success_response
 
 router = APIRouter()
 

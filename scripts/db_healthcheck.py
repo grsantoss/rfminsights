@@ -48,7 +48,7 @@ def check_database_connection(max_retries=30, retry_interval=2):
                     print(f"[SUCCESS] Database connection established on attempt {attempt}")
                     return True
         except OperationalError as e:
-            print(f"[RETRY] Attempt {attempt}/{max_retries}: Database not ready yet. Error: {str(e).split('\n')[0]}")
+            print(f"[RETRY] Attempt {attempt}/{max_retries}: Database not ready yet. Error: {str(e).splitlines()[0]}")
         except SQLAlchemyError as e:
             print(f"[ERROR] Database error: {str(e)}")
             # If it's not a connection error, break the loop

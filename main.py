@@ -31,6 +31,12 @@ from backend.rfm_api import router as rfm_router
 from backend.marketplace import router as marketplace_router
 from backend.auth_routes import router as auth_router
 
+# Import health endpoint if it exists
+try:
+    from health_endpoint import router as health_router
+except ImportError:
+    health_router = None
+
 # Import API utilities and response schemas
 from backend.api_utils import get_api_prefix, http_exception_handler, exception_handler
 from backend.schemas import ResponseError
@@ -140,6 +146,10 @@ api_v1_prefix = get_api_prefix("v1")
 app.include_router(rfm_router, prefix=f"{api_v1_prefix}/rfm", tags=["RFM Analysis"])
 app.include_router(marketplace_router, prefix=f"{api_v1_prefix}/marketplace", tags=["Marketplace"])
 app.include_router(auth_router, prefix=f"{api_v1_prefix}/auth", tags=["Authentication"])
+
+# Include health router if it exists
+if health_router:
+    app.include_router(health_router, tags=["Health"])
 
 # Add legacy routes for backward compatibility
 app.include_router(rfm_router, prefix="/api/rfm", tags=["RFM Analysis (Legacy)"], include_in_schema=False)
