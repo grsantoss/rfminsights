@@ -124,6 +124,34 @@ EOL
     fi
 fi
 
+# Check if port 8000 is already in use and kill the process if needed
+echo "[$(date)] Checking if port 8000 is already in use..."
+if command -v lsof >/dev/null 2>&1; then
+    # Using lsof if available (macOS, Linux)
+    PORT_PID=$(lsof -ti:8000)
+    if [ -n "$PORT_PID" ]; then
+        echo "[$(date)] ⚠️ Port 8000 is already in use by PID $PORT_PID. Attempting to terminate..."
+        kill -15 $PORT_PID 2>/dev/null || kill -9 $PORT_PID 2>/dev/null
+        sleep 2
+    fi
+elif command -v netstat >/dev/null 2>&1; then
+    # Using netstat as fallback
+    if netstat -tuln | grep -q ":8000 "; then
+        echo "[$(date)] ⚠️ Port 8000 is already in use. Please check running processes."
+        # We can't easily get the PID with just netstat, so we'll just warn
+    fi
+fi
+
+# Set up signal handling to ensure clean shutdown
+cleanup() {
+    echo "[$(date)] 🛑 Received shutdown signal. Cleaning up..."
+    # Add any cleanup tasks here
+    exit 0
+}
+
+# Register signal handlers
+trap cleanup SIGTERM SIGINT
+
 # All checks passed, start the application
 echo "[$(date)] ✅ All dependency checks completed. Starting application..."
 exec "$@"

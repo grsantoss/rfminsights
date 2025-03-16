@@ -1,6 +1,6 @@
 # RFM Insights - Main Application
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
@@ -9,6 +9,8 @@ import uvicorn
 import os
 import time
 import logging
+import signal
+import sys
 
 # Import logging configuration and environment validation
 from config.logging_config import setup_logging
