@@ -2,6 +2,55 @@
 
 Este guia fornece instruções detalhadas para instalar o RFM Insights, abordando problemas comuns de instalação e configuração.
 
+## Instalação Rápida
+
+Para uma instalação rápida e simplificada, utilize os scripts de instalação automática:
+
+### Windows
+
+```powershell
+# Execute no PowerShell como administrador
+.\install.ps1
+```
+
+### macOS
+
+```bash
+# Execute no Terminal
+chmod +x ./install.sh
+./install.sh
+```
+
+### Linux
+
+```bash
+# Execute no Terminal com privilégios de superusuário
+chmod +x ./install.sh
+./install.sh
+```
+
+O script de instalação automática irá:
+1. Verificar os pré-requisitos do sistema
+2. Instalar dependências necessárias (se faltantes)
+3. Configurar o ambiente Docker
+4. Configurar o banco de dados PostgreSQL
+5. Configurar o Nginx e certificados SSL
+6. Iniciar todos os serviços
+7. Verificar a instalação
+
+## Verificação da Instalação
+
+Após a instalação, você pode verificar se tudo está funcionando corretamente usando o script de verificação de saúde:
+
+```bash
+./scripts/health_check.sh
+```
+
+Este script irá verificar:
+- Status dos containers Docker
+- Saúde da API
+- Disponibilidade dos serviços
+
 ## Pré-requisitos
 
 - Docker e Docker Compose instalados
@@ -93,22 +142,96 @@ docker run hello-world
 
 Você deve ver uma mensagem de confirmação indicando que o Docker está instalado e funcionando corretamente.
 
-## Instalação Passo a Passo
+## Instalação Passo a Passo (Manual)
+
+Se preferir realizar a instalação manualmente, siga estas etapas:
 
 ### 1. Clonar o Repositório
 
 ```bash
-git clone https://github.com/seu-usuario/rfminsights.git
+# Clone o repositório oficial do RFM Insights
+git clone https://github.com/rfminsights/rfminsights.git
+
+# Navegue para o diretório do projeto
 cd rfminsights
 ```
 
-### 2. Configurar o Ambiente
+### 2. Instalação Usando Módulos Individuais
 
-Execute o script de configuração de ambiente que irá:
-- Verificar dependências
-- Criar diretórios necessários
-- Gerar certificados SSL autoassinados
-- Configurar o arquivo .env
+O RFM Insights possui scripts modulares que permitem uma instalação passo a passo, oferecendo maior controle sobre o processo de instalação. Cada módulo é responsável por uma parte específica da configuração.
+
+#### No Linux/macOS:
+
+Primeiro, torne todos os scripts executáveis:
+
+```bash
+# Tornar todos os scripts executáveis
+chmod +x ./scripts/modules/*.sh
+```
+
+Em seguida, execute cada módulo na sequência correta:
+
+```bash
+# 1. Verificação do ambiente
+./scripts/modules/01-environment-check.sh
+
+# 2. Instalação de dependências
+./scripts/modules/02-dependencies.sh
+
+# 3. Configuração do Docker
+./scripts/modules/03-docker-setup.sh
+
+# 4. Configuração do banco de dados
+./scripts/modules/04-database-setup.sh
+
+# 5. Configuração de certificados SSL
+./scripts/modules/05-ssl-setup.sh
+
+# 6. Finalização da instalação
+./scripts/modules/06-final-setup.sh
+```
+
+#### No Windows (PowerShell):
+
+Execute cada módulo na sequência correta:
+
+```powershell
+# 1. Verificação do ambiente
+.\scripts\modules\01-environment-check.ps1
+
+# 2. Instalação de dependências
+.\scripts\modules\02-dependencies.ps1
+
+# 3. Configuração do Docker
+.\scripts\modules\03-docker-setup.ps1
+
+# 4. Configuração do banco de dados
+.\scripts\modules\04-database-setup.ps1
+
+# 5. Configuração do Nginx
+.\scripts\modules\05-nginx-setup.ps1
+
+# 6. Configuração de certificados SSL
+.\scripts\modules\06-ssl-setup.ps1
+
+# 7. Finalização da instalação
+.\scripts\modules\07-final-setup.ps1
+```
+
+### 3. Descrição dos Módulos de Instalação
+
+Cada módulo de instalação tem uma função específica:
+
+1. **Verificação do Ambiente**: Verifica os pré-requisitos do sistema e prepara o ambiente para instalação.
+2. **Instalação de Dependências**: Instala todas as dependências necessárias, incluindo Docker e Docker Compose.
+3. **Configuração do Docker**: Configura os containers Docker necessários para a aplicação.
+4. **Configuração do Banco de Dados**: Configura o banco de dados PostgreSQL e executa migrações iniciais.
+5. **Configuração do Nginx/SSL**: Configura o servidor web Nginx e gera certificados SSL autoassinados.
+6. **Finalização da Instalação**: Verifica se todos os componentes estão funcionando corretamente e inicia os serviços.
+
+### 4. Configuração Alternativa (Script de Ambiente)
+
+Alternativamente, você pode usar o script de configuração de ambiente que automatiza parte do processo:
 
 #### No Linux/macOS:
 
@@ -120,27 +243,10 @@ chmod +x ./scripts/setup_environment.sh
 #### No Windows (PowerShell):
 
 ```powershell
-.\install.ps1
+.\scripts\install_modular.ps1
 ```
 
-### 3. Configurar Certificados SSL
-
-Os certificados SSL são gerados automaticamente pelo script de configuração, mas você pode personalizá-los:
-
-#### No Linux/macOS:
-
-```bash
-chmod +x ./scripts/ssl_setup.sh
-./scripts/ssl_setup.sh
-```
-
-#### No Windows (PowerShell):
-
-```powershell
-.\scripts\ssl_setup.ps1
-```
-
-### 4. Configurar API Keys (Opcional)
+### 6. Configurar API Keys (Opcional)
 
 Para utilizar os recursos de IA, você precisa configurar uma chave de API do OpenAI:
 
@@ -153,7 +259,9 @@ OPENAI_API_KEY=sua-chave-api-aqui
 
 **Nota:** A aplicação funcionará sem a chave da OpenAI, mas os recursos de IA não estarão disponíveis.
 
-### 5. Iniciar a Aplicação
+### 7. Iniciar a Aplicação
+
+Se você seguiu a instalação manual e ainda não iniciou os containers:
 
 ```bash
 docker-compose up -d
@@ -183,16 +291,31 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -subj "/C=BR/ST=Sao Paulo/L=Sao Paulo/O=RFM Insights/OU=IT/CN=app.rfminsights.com.br"
 ```
 
+### Containers Docker não Iniciam
+
+Se os containers não iniciarem corretamente:
+
+1. Verifique se o Docker está em execução
+2. Verifique os logs dos containers:
+   ```bash
+   docker-compose logs
+   ```
+3. Tente reiniciar os containers:
+   ```bash
+   docker-compose down
+   docker-compose up -d
+   ```
+
 ### Configuração do Nginx
 
 Se o frontend não carregar corretamente, verifique se o arquivo `nginx/frontend.conf` existe e está configurado corretamente.
 
-## Verificação da Instalação
+## Acessando a Aplicação
 
 Após a instalação, acesse:
 
-- Frontend: http://localhost ou https://app.rfminsights.com.br (se configurado no hosts)
-- API: http://localhost:8000 ou https://api.rfminsights.com.br (se configurado no hosts)
+- Frontend: https://localhost ou https://app.rfminsights.com.br (se configurado no hosts)
+- API: https://localhost:8000 ou https://api.rfminsights.com.br (se configurado no hosts)
 
 ## Suporte
 
